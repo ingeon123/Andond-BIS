@@ -11,7 +11,7 @@ back-end(안동시 버스정보시스템 API땡겨오기
 
 
 
-**개발 환경**
+###개발 환경
 
 os : window
 
@@ -25,7 +25,7 @@ server : node.js의 express라이브러리 사용
 
 
 
-**사용 API**
+###사용 API
 
 안동시 버스정보시스템 API
 https://bus.andong.go.kr/m01/s04.do?c=20400&i=20440&tab=1
@@ -34,7 +34,7 @@ https://bus.andong.go.kr/m01/s04.do?c=20400&i=20440&tab=1
 
 
 
-**기능**
+###기능
 
 안동시의 모든 정류장 위치 확인 가능(지도 마크로 표시)
 
