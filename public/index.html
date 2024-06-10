@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>아누버스팟</title>
+	<link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+	<div class="side_bar">
+		<div class="logo">
+			<img src="image/logo.png" />
+		</div>
+		<div class="search_bar">
+			<select name="s_type" id="s_type">
+				<option value="bus">버스</option>
+				<option value="bus_station">정류장</option>
+			</select>
+			<input class="s_input" type="text">
+			<input class="s_btn" type="submit" value="검색">
+		</div>
+		<div class="select_list">
+			<h3>버스 번호나 정류장을 검색하세요.</h3>
+		</div>
+		<div class="details"></div>
+	</div>
+	<div class="main_page">
+		<div id="map" style="width:100%; height:100%;"></div>
+
+		<script type="text/javascript"
+			src="//dapi.kakao.com/v2/maps/sdk.js?appkey=139eecd45dd01eb832ddf775e7ebccd9"></script>
+		<script>
+			var mapContainer = document.getElementById('map'), // 지도를 표시할 div 
+				mapOption = {
+					center: new kakao.maps.LatLng(36.5389, 128.795), // 지도의 중심좌표
+					level: 3 // 지도의 확대 레벨
+				};
+
+			// 지도를 표시할 div와  지도 옵션으로  지도를 생성합니다
+			var map = new kakao.maps.Map(mapContainer, mapOption);
+
+			// ajax동작
+			var s_btn = document.querySelector(".s_btn");
+			s_btn.addEventListener("click", function (e) {
+				e.preventDefault();
+
+				goBack();
+				search();
+			});
+
+			var markers = [];
+			var currentMarker = null;
+
+			function search() {
+				// var select_data = [[1,2,3,4],[1,2,3,4]] 테스트용 데이터
+
+				var s_input = document.querySelector(".s_input").value;
+				var s_type = document.querySelector("#s_type").value;
+
+				if (s_input === "" || s_type === "") return;
+
+				var search_url = `http://localhost:8080/search?input=${s_input}&type=${s_type}` //백엔드 주소 넣어야 함
+				var xhr = new XMLHttpRequest();
+				xhr.open("GET", search_url)
+				xhr.onreadystatechange = function () {
+					if (xhr.readyState == 4) {
+						if (xhr.status == 200) {
+							var select_data = JSON.parse(xhr.responseText)
+							var table = document.createElement("table")
+							table.classList.add("select_table")
+
+							// 기존 마커 제거
+							markers.forEach(function (marker) {
+								marker.setMap(null);
+							});
+							markers = []; // 마커 배열 초기화
+
+							for (var i = 0; i < select_data.length; i++) {
+								var row = table.insertRow();
+								row.insertCell().textContent = select_data[i].station_Nm + " (" + select_data[i].station_Id + ")";
+
+								var imageSrc = 'image/icon.png', // 마커이미지의 주소입니다    
+									imageSize = new kakao.maps.Size(34, 39), // 마커이미지의 크기입니다
+									imageOption = { offset: new kakao.maps.Point(17, 19.5) }; // 마커이미지의 옵션입니다. 마커의 좌표와 일치시킬 이미지 안에서의 좌표를 설정합니다.
+
+								// 마커의 이미지정보를 가지고 있는 마커이미지를 생성합니다
+								var markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption),
+									markerPosition = new kakao.maps.LatLng(select_data[i].gpsY, select_data[i].gpsX); // 마커가 표시될 위치입니다
+
+								// 마커를 생성합니다
+								var marker = new kakao.maps.Marker({
+									position: markerPosition,
+									image: markerImage // 마커이미지 설정 
+								});
+
+								// 마커가 지도 위에 표시되도록 설정합니다
+								marker.setMap(map);
+								markers.push(marker);
+
+								row.addEventListener('click', (function (rowData, marker) {
+									return function () {
+										if (currentMarker) {
+											currentMarker.setMap(null);
+										}
+
+										markers.forEach(function (existingMarker) {
+											existingMarker.setMap(null);
+										});
+
+										// 클릭한 마커만 지도에 표시
+										marker.setMap(map);
+										currentMarker = marker;
+
+										showDetails(rowData);
+										
+										// 이동할 위도 경도 위치를 생성합니다
+										var moveLatLon = new kakao.maps.LatLng(rowData.gpsY, rowData.gpsX);
+
+										// 지도 중심을 부드럽게 이동시킵니다
+										// 만약 이동할 거리가 지도 화면보다 크면 부드러운 효과 없이 이동합니다
+										map.panTo(moveLatLon);
+									};
+								})(select_data[i], marker));
+							}
+							var select_list = document.querySelector(".select_list")
+							select_list.innerHTML = "";
+							select_list.appendChild(table);
+						}
+						else {
+							console.log("백엔드 요청 실패")
+						}
+					}
+				}
+				xhr.send()
+			}
+
+			function showDetails(data) {
+				var select_list = document.querySelector(".select_list");
+				var detailsDiv = document.querySelector(".details");
+				select_list.style.display = "none";
+				detailsDiv.style.display = "block";
+
+				var details_url = `http://localhost:8080/details?input=${data.station_Id}` //백엔드 주소 넣어야 함
+
+				detailsDiv.innerHTML = `
+				<button class="back-button" onclick="goBack()">뒤로가기</button>
+                <h2>${data.station_Nm}</h2>
+                <p><strong>Bus Number:</strong> ${data.bus_number}</p>
+                <p><strong>Current Location:</strong> ${data.current_location}</p>
+                <p><strong>Route:</strong> ${data.route}</p>
+                <p><strong>Time:</strong> ${data.time}</p>
+            `;
+			}
+
+			function goBack() {
+				var select_list = document.querySelector(".select_list");
+				var detailsDiv = document.querySelector(".details");
+
+				select_list.style.display = "block";
+				detailsDiv.style.display = "none";
+
+				if (currentMarker) {
+					currentMarker.setMap(null);
+					currentMarker = null;
+				}
+
+				// 검색 결과 마커 다시 표시
+				markers.forEach(function (marker) {
+					marker.setMap(map);
+				});
+			}
+		</script>
+	</div>
+</body>
+
+</html>
